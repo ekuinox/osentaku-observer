@@ -2,7 +2,6 @@
 
 use std::ops::{Deref, DerefMut};
 
-use anyhow::{ensure, Context, Result};
 use bitflags::bitflags;
 
 use crate::imu::*;
@@ -70,7 +69,7 @@ impl<D> DerefMut for Lsm6sdrx<D> {
 mod spi {
     use std::error::Error as StdError;
 
-    use anyhow::bail;
+    use anyhow::{bail, ensure, Context as _, Result};
     use embedded_hal::spi::{Operation, SpiDevice};
 
     use super::*;
@@ -78,8 +77,7 @@ mod spi {
     impl<D> Lsm6sdrx<D>
     where
         D: SpiDevice,
-        <D as embedded_hal::spi::ErrorType>::Error:
-            Into<anyhow::Error> + StdError + Sync + Send + 'static,
+        <D as embedded_hal::spi::ErrorType>::Error: StdError + Sync + Send + 'static,
     {
         pub fn new(mut device: D) -> Result<Lsm6sdrx<D>> {
             // check device
@@ -108,8 +106,7 @@ mod spi {
     impl<D> Imu for Lsm6sdrx<D>
     where
         D: SpiDevice,
-        <D as embedded_hal::spi::ErrorType>::Error:
-            Into<anyhow::Error> + StdError + Sync + Send + 'static,
+        <D as embedded_hal::spi::ErrorType>::Error: StdError + Sync + Send + 'static,
     {
         fn fetch_acceleration(&mut self) -> Result<Acceleration> {
             bail!("TODO")
