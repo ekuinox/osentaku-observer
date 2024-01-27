@@ -1,0 +1,31 @@
+[[env_files]]
+path = ".env"
+
+[[env_files]]
+path = ".env.defaults"
+defaults_only = true
+
+[env]
+TARGET = "xtensa-esp32s3-espidf"
+PKG_NAME = "${CARGO_MAKE_CRATE_NAME}"
+
+[tasks.run]
+dependencies = ["build", "flash-with-monitor"]
+
+[tasks.build]
+command = "cargo"
+args = ["build"]
+
+[tasks.flash-with-monitor]
+command = "${ESPFLASH}"
+args = [
+    "flash",
+    "-p",
+    "${DEVICE_PATH}",
+    "./target/${TARGET}/debug/${PKG_NAME}",
+    "--monitor",
+]
+
+[tasks.monitor]
+command = "${ESPFLASH}"
+args = ["monitor", "-p", "${DEVICE_PATH}"]
