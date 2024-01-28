@@ -48,7 +48,7 @@ fn main() -> Result<()> {
         let device_cfg = spi::config::Config::new()
             .baudrate(MegaHertz::from(10).into())
             .data_mode(MODE_3);
-        
+
         SpiDeviceDriver::new(driver, Some(spi_cs), &device_cfg)
             .context("Failed to create SPI device.")?
     };
