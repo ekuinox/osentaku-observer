@@ -232,7 +232,7 @@ bitflags! {
         const DEN_X = 0b1000_0000;
         /// DEN value stored in LSB of Y-axis. Default value: 1
         /// (0: DEN not stored in Y-axis LSB; 1: DEN stored in Y-axis LSB)
-        const DEN_Y = 0b0_1000_0000;
+        const DEN_Y = 0b1000_0000;
         /// DEN value stored in LSB of Z-axis. Default value: 1
         /// (0: DEN not stored in Z-axis LSB; 1: DEN stored in Z-axis LSB)
         const DEN_Z = 0b0010_0000;
