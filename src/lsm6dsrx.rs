@@ -439,14 +439,9 @@ mod spi {
 
             Ok(Lsm6sdrx { device })
         }
-    }
 
-    impl<D> Imu for Lsm6sdrx<D>
-    where
-        D: SpiDevice,
-        <D as embedded_hal::spi::ErrorType>::Error: StdError + Sync + Send + 'static,
-    {
-        fn fetch_acceleration(&mut self) -> Result<Acceleration> {
+        /// 加速度を取得する
+        pub fn fetch_acceleration(&mut self) -> Result<Acceleration> {
             /// [mg/LSB]
             const LINEAR_ACCELERATION_SENSITIVITY: f64 = 0.061;
 
@@ -477,6 +472,16 @@ mod spi {
             };
 
             Ok(acceleration)
+        }
+    }
+
+    impl<D> Accelerometer for Lsm6sdrx<D>
+    where
+        D: SpiDevice,
+        <D as embedded_hal::spi::ErrorType>::Error: StdError + Sync + Send + 'static,
+    {
+        fn fetch(&mut self) -> Result<Acceleration> {
+            self.fetch_acceleration()
         }
     }
 

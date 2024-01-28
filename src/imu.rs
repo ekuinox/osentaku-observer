@@ -9,6 +9,6 @@ pub struct Acceleration {
     pub z: f64,
 }
 
-pub trait Imu {
-    fn fetch_acceleration(&mut self) -> Result<Acceleration>;
+pub trait Accelerometer {
+    fn fetch(&mut self) -> Result<Acceleration>;
 }

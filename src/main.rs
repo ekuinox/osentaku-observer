@@ -13,7 +13,7 @@ use esp_idf_hal::{
 };
 
 use crate::{
-    imu::{Acceleration, Imu},
+    imu::{Acceleration, Accelerometer as _},
     lsm6dsrx::Lsm6sdrx,
 };
 
@@ -59,7 +59,7 @@ fn main() -> Result<()> {
     loop {
         FreeRtos::delay_ms(1000);
 
-        match imu.fetch_acceleration() {
+        match imu.fetch() {
             Ok(Acceleration { x, y, z }) => {
                 log::info!("x = {x}, y = {y}, z = {z}");
             }
