@@ -1,10 +1,27 @@
 //! https://www.st.com/resource/en/datasheet/lsm6dsrx.pdf
+//! 真似してる -> https://github.com/ypc2e55orj/esp32s3_playground/blob/main/imu/main/imu.cc
 
 use std::ops::{Deref, DerefMut};
 
 use bitflags::bitflags;
 
 use crate::imu::*;
+
+/// 期待する `WHO_AM_I`
+const DEFAULT_WHO_AM_I: u8 = 0x6B;
+
+/// Gyro X: 1.103957 x + 186.606155
+const DAT_X_OFS_USR: i8 = -1;
+
+/// Gyro Y: -1.892573 x + -283.435059
+const DAT_Y_OFS_USR: i8 = -46;
+
+/// Gyro Z: -3.169824 x + 62.102707
+const DAT_Z_OFS_USR: i8 = 5;
+
+/// [mdps/LSB]
+#[allow(unused)]
+const ANGULAR_RATE_SENSITIVITY: f64 = 70.0;
 
 bitflags! {
     /// 8. Register mapping
@@ -94,8 +111,34 @@ bitflags! {
         const FIFO_DATA_OUT_Z_H = 0x7E;
     }
 
+    /// CTRL1_XL (0x10)
+    /// Accelerometer control register 1 (r/w)
+    pub struct Ctrl1Xl: u8 {
+        const ODR_XL3 = 0b1000_0000;
+        const ODR_XL2 = 0b0100_0000;
+        const ODR_XL1 = 0b0010_0000;
+        const ODR_XL0 = 0b0001_0000;
+        const FS1_XL = 0b0000_1000;
+        const FS0_XL = 0b0000_0100;
+        const LPF2_XL_EN = 0b0000_0010;
+    }
+
+    /// CTRL2_G (0x11)
+    /// Gyroscope control register 2 (r/w)
+    pub struct Ctrl2G: u8 {
+        const ODR_G3 = 0b1000_0000;
+        const ODR_G2 = 0b0100_0000;
+        const ODR_G1 = 0b0010_0000;
+        const ODR_G0 = 0b0001_0000;
+        const FS1_G = 0b0000_1000;
+        const FS0_G = 0b0000_0100;
+        const FS_125 = 0b0000_0010;
+        const FS_4000 = 0b0000_0001;
+    }
+
     /// CTRL3_C (0x12)
-    pub struct Control3Flags: u8 {
+    /// Control register 3 (r/w)
+    pub struct Ctrl3C: u8 {
         /// Reboots memory content. Default value: 0
         /// (0: normal mode; 1: reboot memory content)
         /// Note: the accelerometer must be ON. This bit is automatically cleared.
@@ -123,10 +166,101 @@ bitflags! {
         /// This bit is automatically cleared.
         const SW_RESET = 0b0000_0001;
     }
+
+    /// CTRL4_C (0x13)
+    /// Control register 4 (r/w)
+    pub struct Ctrl4C: u8 {
+        const SLEEP_G = 0b0100_0000;
+        const INT2_ON_INT1 = 0b0010_0000;
+        const DRDY_MASK = 0b0000_1000;
+        const I2C_DISABLE = 0b0000_0100;
+        const LPF1_SEL_G = 0b0000_0010;
+    }
+
+    /// CTRL5_C (0x14)
+    /// Control register 5 (r/w)
+    pub struct Ctrl5C: u8 {
+        const ROUNDING1 = 0b0100_0000;
+        const ROUNDING0 = 0b0010_0000;
+        const ST1_G = 0b0000_1000;
+        const ST0_G = 0b0000_0100;
+        const ST1_XL = 0b0000_0010;
+        const ST0_XL = 0b0000_0001;
+    }
+
+    /// CTRL6_C (0x15)
+    /// Control register 6 (r/w)
+    pub struct Ctrl6C: u8 {
+        const TRIG_EN = 0b1000_0000;
+        const LVL1_EN = 0b0100_0000;
+        const LVL2_EN = 0b0010_0000;
+        const XL_HM_MODE = 0b0001_0000;
+        const USR_OFF_W = 0b0000_1000;
+        const FTYPE_2 = 0b0000_0100;
+        const FTYPE_1 = 0b0000_0010;
+        const FTYPE_0 = 0b0000_0001;
+    }
+
+    /// CTRL7_G (0x16)
+    /// Control register 7 (r/w)
+    pub struct Ctrl7G: u8 {
+        const G_HM_MODE = 0b1000_0000;
+        const HP_EN_G = 0b0100_0000;
+        const HPM1_G = 0b0010_0000;
+        const HPM0_G = 0b0001_0000;
+        const OIS_ON_EN = 0b0000_0100;
+        const USR_OFF_ON_OUT = 0b0000_0010;
+        const OIS_ON = 0b0000_0001;
+    }
+
+    /// CTRL8_XL (0x17)
+    /// Control register 8 (r/w)
+    pub struct Ctrl8Xl: u8 {
+        const HPCF_XL_2 = 0b1000_0000;
+        const HPCF_XL_1 = 0b0100_0000;
+        const HPCF_XL_0 = 0b0010_0000;
+        const HP_REF_MODE_XL = 0b0001_0000;
+        const FASTSETTL_MODE_XL = 0b0000_1000;
+        const HP_SLOPE_XL_EN = 0b0000_0100;
+        const LOW_PASS_ON_6D = 0b0000_0001;
+    }
+
+    /// CTRL9_XL (0x18)
+    pub struct Ctrl9Xl: u8 {
+        /// DEN value stored in LSB of X-axis. Default value: 1
+        /// (0: DEN not stored in X-axis LSB; 1: DEN stored in X-axis LSB)
+        const DEN_X = 0b1000_0000;
+        /// DEN value stored in LSB of Y-axis. Default value: 1
+        /// (0: DEN not stored in Y-axis LSB; 1: DEN stored in Y-axis LSB)
+        const DEN_Y = 0b01000_0000;
+        /// DEN value stored in LSB of Z-axis. Default value: 1
+        /// (0: DEN not stored in Z-axis LSB; 1: DEN stored in Z-axis LSB)
+        const DEN_Z = 0b0010_0000;
+        /// DEN stamping sensor selection. Default value: 0
+        /// (0: DEN pin info stamped in the gyroscope axis selected by bits [7:5];
+        /// 1: DEN pin info stamped in the accelerometer axis selected by bits [7:5])
+        const DEN_XL_G = 0b0001_0000;
+        /// Extends DEN functionality to accelerometer sensor. Default value: 0
+        /// (0: disabled; 1: enabled)
+        const DEN_XL_EN = 0b0000_1000;
+        /// DEN active level configuration. Default value: 0
+        /// (0: active low; 1: active high)
+        const DEN_LH = 0b0000_0100;
+        /// Disables MIPI I3CSM communication protocol(1)
+        /// (0: SPI, I²C, MIPI I3CSM interfaces enabled (default);
+        /// 1: MIPI I3CSM interface disabled)
+        const I3C_DISABLE = 0b0000_0010;
+    }
 }
 
-const DEFAULT_WHO_AM_I: u8 = 0x6B;
+impl RegisterAddress {
+    /// Returns read address
+    pub fn read(&self) -> u8 {
+        self.bits() | 0x80
+    }
+}
 
+/// Device driver for [LSM6DSRX](https://www.st.com/ja/mems-and-sensors/lsm6dsrx.html)
 pub struct Lsm6sdrx<D> {
     #[allow(unused)]
     device: D,
@@ -145,10 +279,11 @@ impl<D> DerefMut for Lsm6sdrx<D> {
     }
 }
 
+/// Implementation for SpiDevice
 mod spi {
     use std::error::Error as StdError;
 
-    use anyhow::{bail, ensure, Context as _, Result};
+    use anyhow::{ensure, Context as _, Result};
     use embedded_hal::spi::{Operation, SpiDevice};
 
     use super::*;
@@ -169,14 +304,138 @@ mod spi {
             // reset device
             {
                 let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL3_C)
-                    .map(Control3Flags::from_bits_retain)
-                    .context("Failed to read `REG_CTRL3_C` register")?;
-                reg.insert(Control3Flags::SW_RESET);
+                    .map(Ctrl3C::from_bits_retain)
+                    .context("Failed to read `CTRL3_C` register")?;
+                reg.insert(Ctrl3C::SW_RESET);
                 write_reg_u8(&mut device, RegisterAddress::CTRL3_C, reg.bits())
-                    .context("Failed to write `REG_CTRL3_C` register.")?;
+                    .context("Failed to write `CTRL3_C` register.")?;
             }
 
-            // TODO: なんかいろいろしないといけない
+            // I3C を無効化
+            {
+                let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL9_XL)
+                    .map(Ctrl9Xl::from_bits_retain)
+                    .context("Failed to read `CTRL9_XL` register")?;
+                reg.insert(Ctrl9Xl::I3C_DISABLE);
+                write_reg_u8(&mut device, RegisterAddress::CTRL9_XL, reg.bits())
+                    .context("Failed to write `CTRL9_XL` register.")?;
+            }
+
+            // 読みだしているレジスタは更新しない
+            {
+                let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL3_C)
+                    .map(Ctrl3C::from_bits_retain)
+                    .context("Failed to read `CTRL3_C` register")?;
+                reg.insert(Ctrl3C::BDU);
+                write_reg_u8(&mut device, RegisterAddress::CTRL3_C, reg.bits())
+                    .context("Failed to write `CTRL3_C` register.")?;
+            }
+
+            // 加速度計の設定
+            {
+                let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL1_XL)
+                    .map(Ctrl1Xl::from_bits_retain)
+                    .context("Failed to read `CTRL1_XL` register")?;
+                // 出力レートを 1.66Khz に設定
+                {
+                    reg.insert(Ctrl1Xl::ODR_XL3);
+                    reg.remove(Ctrl1Xl::ODR_XL2);
+                    reg.remove(Ctrl1Xl::ODR_XL1);
+                    reg.remove(Ctrl1Xl::ODR_XL0);
+                }
+                // スケールを +-2g に設定
+                {
+                    reg.remove(Ctrl1Xl::FS0_XL);
+                    reg.remove(Ctrl1Xl::FS1_XL);
+                }
+                // LPF2 を有効
+                reg.insert(Ctrl1Xl::LPF2_XL_EN);
+                write_reg_u8(&mut device, RegisterAddress::CTRL1_XL, reg.bits())
+                    .context("Failed to write `CTRL1_XL` register.")?;
+            }
+
+            // フィルタをLow pass, ODR/10に設定
+            {
+                let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL8_XL)
+                    .map(Ctrl8Xl::from_bits_retain)
+                    .context("Failed to read `CTRL8_XL` register")?;
+                reg.insert(Ctrl8Xl::HPCF_XL_0);
+                reg.remove(Ctrl8Xl::HPCF_XL_1);
+                reg.remove(Ctrl8Xl::HPCF_XL_2);
+                write_reg_u8(&mut device, RegisterAddress::CTRL8_XL, reg.bits())
+                    .context("Failed to write `CTRL8_XL` register.")?;
+            }
+
+            // オフセットの重みを2^-10 g/LSBに設定
+            {
+                let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL6_C)
+                    .map(Ctrl6C::from_bits_retain)
+                    .context("Failed to read `CTRL6_C` register")?;
+                reg.remove(Ctrl6C::USR_OFF_W);
+                write_reg_u8(&mut device, RegisterAddress::CTRL6_C, reg.bits())
+                    .context("Failed to write `CTRL6_C` register.")?;
+            }
+
+            // オフセットを有効
+            {
+                let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL7_G)
+                    .map(Ctrl7G::from_bits_retain)
+                    .context("Failed to read `CTRL7_G` register")?;
+                reg.insert(Ctrl7G::USR_OFF_ON_OUT);
+                write_reg_u8(&mut device, RegisterAddress::CTRL7_G, reg.bits())
+                    .context("Failed to write `CTRL7_G` register.")?;
+                write_reg_u8(&mut device, RegisterAddress::X_OFS_USR, DAT_X_OFS_USR as u8)
+                    .context("Failed to write `X_OFS_USR` register.")?;
+                write_reg_u8(&mut device, RegisterAddress::Y_OFS_USR, DAT_Y_OFS_USR as u8)
+                    .context("Failed to write `Y_OFS_USR` register.")?;
+                write_reg_u8(&mut device, RegisterAddress::Z_OFS_USR, DAT_Z_OFS_USR as u8)
+                    .context("Failed to write `Z_OFS_USR` register.")?;
+            }
+
+            // 角速度計の設定
+            {
+                let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL2_G)
+                    .map(Ctrl2G::from_bits_retain)
+                    .context("Failed to read `CTRL2_G` register")?;
+                // 出力レートを 1.66Khz に設定
+                {
+                    reg.insert(Ctrl2G::ODR_G3);
+                    reg.remove(Ctrl2G::ODR_G2);
+                    reg.remove(Ctrl2G::ODR_G1);
+                    reg.remove(Ctrl2G::ODR_G0);
+                }
+                // スケールを +-2000dps に設定
+                {
+                    reg.insert(Ctrl2G::FS1_G);
+                    reg.insert(Ctrl2G::FS0_G);
+                    reg.remove(Ctrl2G::FS_125);
+                    reg.remove(Ctrl2G::FS_4000);
+                }
+                write_reg_u8(&mut device, RegisterAddress::CTRL2_G, reg.bits())
+                    .context("Failed to write `CTRL2_G` register.")?;
+            }
+
+            // LPF1 を有効
+            {
+                let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL4_C)
+                    .map(Ctrl4C::from_bits_retain)
+                    .context("Failed to read `CTRL4_C` register")?;
+                reg.insert(Ctrl4C::LPF1_SEL_G);
+                write_reg_u8(&mut device, RegisterAddress::CTRL4_C, reg.bits())
+                    .context("Failed to write `CTRL4_C` register.")?;
+            }
+
+            // これは何
+            {
+                let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL6_C)
+                    .map(Ctrl6C::from_bits_retain)
+                    .context("Failed to read `CTRL6_C` register")?;
+                reg.remove(Ctrl6C::FTYPE_2);
+                reg.insert(Ctrl6C::FTYPE_1);
+                reg.remove(Ctrl6C::FTYPE_0);
+                write_reg_u8(&mut device, RegisterAddress::CTRL6_C, reg.bits())
+                    .context("Failed to write `CTRL6_C` register.")?;
+            }
 
             Ok(Lsm6sdrx { device })
         }
@@ -188,13 +447,42 @@ mod spi {
         <D as embedded_hal::spi::ErrorType>::Error: StdError + Sync + Send + 'static,
     {
         fn fetch_acceleration(&mut self) -> Result<Acceleration> {
-            bail!("TODO")
+            /// [mg/LSB]
+            const LINEAR_ACCELERATION_SENSITIVITY: f64 = 0.061;
+
+            #[repr(packed)]
+            #[derive(Default, Debug)]
+            struct RxBuffer {
+                pub x: i16,
+                pub y: i16,
+                pub z: i16,
+            }
+
+            let mut buffer = [u8::MIN; std::mem::size_of::<RxBuffer>()];
+            self.device
+                .transaction(&mut [
+                    Operation::Write(&[RegisterAddress::OUTX_L_G.read()]),
+                    Operation::Read(&mut buffer),
+                ])
+                .context("Failed to run transaction")?;
+
+            let buffer = unsafe { &*(buffer.as_ptr() as *const RxBuffer) };
+
+            log::info!("buffer = {buffer:?}");
+
+            let acceleration = Acceleration {
+                x: (buffer.x as f64) * LINEAR_ACCELERATION_SENSITIVITY,
+                y: (buffer.y as f64) * LINEAR_ACCELERATION_SENSITIVITY,
+                z: (buffer.z as f64) * LINEAR_ACCELERATION_SENSITIVITY,
+            };
+
+            Ok(acceleration)
         }
     }
 
     #[inline]
     fn read_reg_u8<D: SpiDevice>(device: &mut D, addr: RegisterAddress) -> Result<u8, D::Error> {
-        let write_buf = [addr.bits() | 0x80];
+        let write_buf = [addr.read()];
         let mut read_buf = [u8::MIN];
         device.transaction(&mut [Operation::Write(&write_buf), Operation::Read(&mut read_buf)])?;
         Ok(read_buf[0])
