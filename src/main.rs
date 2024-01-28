@@ -48,9 +48,9 @@ fn main() -> Result<()> {
         let device_cfg = spi::config::Config::new()
             .baudrate(MegaHertz::from(10).into())
             .data_mode(MODE_3);
-        let device = SpiDeviceDriver::new(driver, Some(spi_cs), &device_cfg)
-            .context("Failed to create SPI device.")?;
-        device
+        
+        SpiDeviceDriver::new(driver, Some(spi_cs), &device_cfg)
+            .context("Failed to create SPI device.")?
     };
 
     let mut imu = Lsm6sdrx::new(spi_device)?;
