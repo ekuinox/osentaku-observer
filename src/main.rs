@@ -1,7 +1,7 @@
 mod imu;
 mod lsm6dsrx;
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Context as _, Result};
 use embedded_hal::spi::MODE_3;
@@ -78,19 +78,35 @@ fn main() -> Result<()> {
             .context("Failed to create SPI device.")?
     };
 
-    let imu = Mutex::new(Lsm6sdrx::new(spi_device)?);
+    let imu = Arc::new(Mutex::new(Lsm6sdrx::new(spi_device)?));
     log::info!("Lsm6sdrx initialized.");
 
     let mut server: EspHttpServer<'_> = create_server().context("Failed to create server.")?;
-    server.fn_handler("/", Method::Get, move |req| -> Result<()> {
-        use esp_idf_hal::io::Write;
-        let mut res = req.into_ok_response()?;
-        let mut imu = imu.lock().expect("Failed to lock mutex.");
-        let data = imu.fetch()?;
-        let json_text = serde_json::to_string_pretty(&data)?;
-        writeln!(&mut res, "{json_text}")?;
-        Ok(())
-    })?;
+
+    {
+        let imu = Arc::clone(&imu);
+        server.fn_handler("/accel", Method::Get, move |req| -> Result<()> {
+            use esp_idf_hal::io::Write;
+            let mut res = req.into_ok_response()?;
+            let mut imu = imu.lock().expect("Failed to lock mutex.");
+            let data = imu.fetch()?;
+            let json_text = serde_json::to_string_pretty(&data)?;
+            writeln!(&mut res, "{json_text}")?;
+            Ok(())
+        })?;
+    }
+
+    {
+        server.fn_handler("/gyro", Method::Get, move |req| -> Result<()> {
+            use esp_idf_hal::io::Write;
+            let mut res = req.into_ok_response()?;
+            // そのうちジャイロもやる
+            let data = None as Option<()>;
+            let json_text = serde_json::to_string_pretty(&data)?;
+            writeln!(&mut res, "{json_text}")?;
+            Ok(())
+        })?;
+    }
 
     // Keep server running beyond when main() returns (forever)
     // Do not call this if you ever want to stop or access it later.
