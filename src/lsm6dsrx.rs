@@ -262,7 +262,6 @@ impl RegisterAddress {
 
 /// Device driver for [LSM6DSRX](https://www.st.com/ja/mems-and-sensors/lsm6dsrx.html)
 pub struct Lsm6sdrx<D> {
-    #[allow(unused)]
     device: D,
 }
 
