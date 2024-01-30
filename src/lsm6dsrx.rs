@@ -464,11 +464,11 @@ mod spi {
 
             log::info!("buffer = {buffer:?}");
 
-            let acceleration = Acceleration {
-                x: (buffer.x as f64) * LINEAR_ACCELERATION_SENSITIVITY,
-                y: (buffer.y as f64) * LINEAR_ACCELERATION_SENSITIVITY,
-                z: (buffer.z as f64) * LINEAR_ACCELERATION_SENSITIVITY,
-            };
+            let acceleration = Acceleration::new(
+                (buffer.x as f64) * LINEAR_ACCELERATION_SENSITIVITY,
+                (buffer.y as f64) * LINEAR_ACCELERATION_SENSITIVITY,
+                (buffer.z as f64) * LINEAR_ACCELERATION_SENSITIVITY,
+            );
 
             Ok(acceleration)
         }
