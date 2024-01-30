@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "./collector"]
+members = [".", "crates/collector"]
 
 [package]
 name = "osentaku-observer"
