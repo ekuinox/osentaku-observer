@@ -304,7 +304,7 @@ mod spi {
             {
                 let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL3_C)
                     .map(Ctrl3C::from_bits_retain)
-                    .context("Failed to read `CTRL3_C` register")?;
+                    .context("Failed to read `CTRL3_C` register.")?;
                 reg.insert(Ctrl3C::SW_RESET);
                 write_reg_u8(&mut device, RegisterAddress::CTRL3_C, reg.bits())
                     .context("Failed to write `CTRL3_C` register.")?;
@@ -314,7 +314,7 @@ mod spi {
             {
                 let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL9_XL)
                     .map(Ctrl9Xl::from_bits_retain)
-                    .context("Failed to read `CTRL9_XL` register")?;
+                    .context("Failed to read `CTRL9_XL` register.")?;
                 reg.insert(Ctrl9Xl::I3C_DISABLE);
                 write_reg_u8(&mut device, RegisterAddress::CTRL9_XL, reg.bits())
                     .context("Failed to write `CTRL9_XL` register.")?;
@@ -324,7 +324,7 @@ mod spi {
             {
                 let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL3_C)
                     .map(Ctrl3C::from_bits_retain)
-                    .context("Failed to read `CTRL3_C` register")?;
+                    .context("Failed to read `CTRL3_C` register.")?;
                 reg.insert(Ctrl3C::BDU);
                 write_reg_u8(&mut device, RegisterAddress::CTRL3_C, reg.bits())
                     .context("Failed to write `CTRL3_C` register.")?;
@@ -334,7 +334,7 @@ mod spi {
             {
                 let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL1_XL)
                     .map(Ctrl1Xl::from_bits_retain)
-                    .context("Failed to read `CTRL1_XL` register")?;
+                    .context("Failed to read `CTRL1_XL` register.")?;
                 // 出力レートを 1.66Khz に設定
                 {
                     reg.insert(Ctrl1Xl::ODR_XL3);
@@ -357,7 +357,7 @@ mod spi {
             {
                 let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL8_XL)
                     .map(Ctrl8Xl::from_bits_retain)
-                    .context("Failed to read `CTRL8_XL` register")?;
+                    .context("Failed to read `CTRL8_XL` register.")?;
                 reg.insert(Ctrl8Xl::HPCF_XL_0);
                 reg.remove(Ctrl8Xl::HPCF_XL_1);
                 reg.remove(Ctrl8Xl::HPCF_XL_2);
@@ -369,7 +369,7 @@ mod spi {
             {
                 let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL6_C)
                     .map(Ctrl6C::from_bits_retain)
-                    .context("Failed to read `CTRL6_C` register")?;
+                    .context("Failed to read `CTRL6_C` register.")?;
                 reg.remove(Ctrl6C::USR_OFF_W);
                 write_reg_u8(&mut device, RegisterAddress::CTRL6_C, reg.bits())
                     .context("Failed to write `CTRL6_C` register.")?;
@@ -379,7 +379,7 @@ mod spi {
             {
                 let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL7_G)
                     .map(Ctrl7G::from_bits_retain)
-                    .context("Failed to read `CTRL7_G` register")?;
+                    .context("Failed to read `CTRL7_G` register.")?;
                 reg.insert(Ctrl7G::USR_OFF_ON_OUT);
                 write_reg_u8(&mut device, RegisterAddress::CTRL7_G, reg.bits())
                     .context("Failed to write `CTRL7_G` register.")?;
@@ -395,7 +395,7 @@ mod spi {
             {
                 let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL2_G)
                     .map(Ctrl2G::from_bits_retain)
-                    .context("Failed to read `CTRL2_G` register")?;
+                    .context("Failed to read `CTRL2_G` register.")?;
                 // 出力レートを 1.66Khz に設定
                 {
                     reg.insert(Ctrl2G::ODR_G3);
@@ -418,7 +418,7 @@ mod spi {
             {
                 let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL4_C)
                     .map(Ctrl4C::from_bits_retain)
-                    .context("Failed to read `CTRL4_C` register")?;
+                    .context("Failed to read `CTRL4_C` register.")?;
                 reg.insert(Ctrl4C::LPF1_SEL_G);
                 write_reg_u8(&mut device, RegisterAddress::CTRL4_C, reg.bits())
                     .context("Failed to write `CTRL4_C` register.")?;
@@ -428,7 +428,7 @@ mod spi {
             {
                 let mut reg = read_reg_u8(&mut device, RegisterAddress::CTRL6_C)
                     .map(Ctrl6C::from_bits_retain)
-                    .context("Failed to read `CTRL6_C` register")?;
+                    .context("Failed to read `CTRL6_C` register.")?;
                 reg.remove(Ctrl6C::FTYPE_2);
                 reg.insert(Ctrl6C::FTYPE_1);
                 reg.remove(Ctrl6C::FTYPE_0);
@@ -458,11 +458,11 @@ mod spi {
                     Operation::Write(&[RegisterAddress::OUTX_L_A.read()]),
                     Operation::Read(&mut buffer),
                 ])
-                .context("Failed to run transaction")?;
+                .context("Failed to run transaction.")?;
 
             let buffer = unsafe { &*(buffer.as_ptr() as *const RxBuffer) };
 
-            log::info!("buffer = {buffer:?}");
+            log::debug!("buffer = {buffer:?}");
 
             let acceleration = Acceleration::new(
                 (buffer.x as f64) * LINEAR_ACCELERATION_SENSITIVITY,
