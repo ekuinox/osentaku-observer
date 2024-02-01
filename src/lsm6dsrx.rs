@@ -455,7 +455,7 @@ mod spi {
             let mut buffer = [u8::MIN; std::mem::size_of::<RxBuffer>()];
             self.device
                 .transaction(&mut [
-                    Operation::Write(&[RegisterAddress::OUTX_L_G.read()]),
+                    Operation::Write(&[RegisterAddress::OUTX_L_A.read()]),
                     Operation::Read(&mut buffer),
                 ])
                 .context("Failed to run transaction")?;
